@@ -1,0 +1,6 @@
+{
+  "name": "PW SENSEI",
+  "description": "Educational platform for batches, subjects, chapters, study materials, and admin management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
