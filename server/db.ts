@@ -957,10 +957,15 @@ export const db = {
     const chIds = db.chapters.filter(c => subIds.includes(c.subject_id)).map(c => c.id);
     db.chapters = db.chapters.filter(c => !subIds.includes(c.subject_id));
 
+    const lecIds = db.lectures.filter(l => chIds.includes(l.chapter_id)).map(l => l.id);
     db.lectures = db.lectures.filter(l => !chIds.includes(l.chapter_id));
     db.notes = db.notes.filter(n => !chIds.includes(n.chapter_id));
     db.quizzes = db.quizzes.filter(q => !chIds.includes(q.chapter_id));
+    db.extra_resources = db.extra_resources.filter(e => !lecIds.includes(e.lecture_id));
     db.announcements = db.announcements.filter(a => String(a.batch_id) !== String(id));
+    db.teachers.forEach(t => {
+      if (String(t.batch_id) === String(id)) t.batch_id = null as any;
+    });
 
     saveDatabase();
     return true;
@@ -1060,9 +1065,11 @@ export const db = {
 
     const chIds = db.chapters.filter(c => c.subject_id === Number(id)).map(c => c.id);
     db.chapters = db.chapters.filter(c => c.subject_id !== Number(id));
+    const lecIds = db.lectures.filter(l => chIds.includes(l.chapter_id)).map(l => l.id);
     db.lectures = db.lectures.filter(l => !chIds.includes(l.chapter_id));
     db.notes = db.notes.filter(n => !chIds.includes(n.chapter_id));
     db.quizzes = db.quizzes.filter(q => !chIds.includes(q.chapter_id));
+    db.extra_resources = db.extra_resources.filter(e => !lecIds.includes(e.lecture_id));
 
     saveDatabase();
     return true;
@@ -1167,9 +1174,11 @@ export const db = {
     db.chapters = db.chapters.filter(c => c.id !== Number(id));
     if (db.chapters.length === initLen) return false;
 
+    const lecIds = db.lectures.filter(l => l.chapter_id === Number(id)).map(l => l.id);
     db.lectures = db.lectures.filter(l => l.chapter_id !== Number(id));
     db.notes = db.notes.filter(n => n.chapter_id !== Number(id));
     db.quizzes = db.quizzes.filter(q => q.chapter_id !== Number(id));
+    db.extra_resources = db.extra_resources.filter(e => !lecIds.includes(e.lecture_id));
 
     saveDatabase();
     return true;
@@ -1572,8 +1581,15 @@ export const db = {
   deleteVideo(id: number): boolean {
     const db = loadDatabase();
     const initLen = db.lectures.length;
-    db.lectures = db.lectures.filter(l => l.id !== Number(id));
-    db.extra_resources = db.extra_resources.filter(e => e.lecture_id !== Number(id));
+    const numId = Number(id);
+    db.lectures = db.lectures.filter(l => l.id !== numId);
+    db.extra_resources = db.extra_resources.filter(e => e.lecture_id !== numId);
+    db.notes.forEach(n => {
+      if (n.lecture_id === numId) n.lecture_id = null;
+    });
+    db.quizzes.forEach(q => {
+      if (q.lecture_id === numId) q.lecture_id = null;
+    });
     saveDatabase();
     return db.lectures.length !== initLen;
   },

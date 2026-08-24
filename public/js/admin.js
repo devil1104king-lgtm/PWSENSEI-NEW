@@ -1215,12 +1215,14 @@ async function deleteVideoItem(videoId) {
   if (!confirm('Are you sure you want to delete this video lecture?')) return;
   try {
     const res = await adminFetch(`/api/admin/videos/${videoId}`, { method: 'DELETE' });
-    if (res.ok) {
-      adminToast('Video deleted');
-      if (currentContentChapter) loadChapterContent(currentContentChapter);
-      if (currentSubjectForChapters) loadChaptersTable(currentSubjectForChapters);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      adminToast(data.message || 'Video deleted', 'success');
+      if (currentContentChapter) await loadChapterContent(currentContentChapter);
+      if (currentSubjectForChapters) await loadChaptersTable(currentSubjectForChapters);
+      if (typeof loadDashboard === 'function') loadDashboard();
     } else {
-      adminToast('Failed to delete video', 'error');
+      adminToast(data.error || 'Failed to delete video', 'error');
     }
   } catch (err) {
     adminToast('Error connecting to server', 'error');
@@ -1277,12 +1279,14 @@ async function deletePdfItem(pdfId) {
   if (!confirm('Are you sure you want to delete this document?')) return;
   try {
     const res = await adminFetch(`/api/admin/pdfs/${pdfId}`, { method: 'DELETE' });
-    if (res.ok) {
-      adminToast('PDF deleted');
-      if (currentContentChapter) loadChapterContent(currentContentChapter);
-      if (currentSubjectForChapters) loadChaptersTable(currentSubjectForChapters);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      adminToast(data.message || 'PDF deleted', 'success');
+      if (currentContentChapter) await loadChapterContent(currentContentChapter);
+      if (currentSubjectForChapters) await loadChaptersTable(currentSubjectForChapters);
+      if (typeof loadDashboard === 'function') loadDashboard();
     } else {
-      adminToast('Failed to delete PDF', 'error');
+      adminToast(data.error || 'Failed to delete PDF', 'error');
     }
   } catch (err) {
     adminToast('Error connecting to server', 'error');
@@ -1293,12 +1297,14 @@ async function deleteQuizItem(quizId) {
   if (!confirm('Are you sure you want to delete this quiz?')) return;
   try {
     const res = await adminFetch(`/api/admin/quizzes/${quizId}`, { method: 'DELETE' });
-    if (res.ok) {
-      adminToast('Quiz deleted');
-      if (currentContentChapter) loadChapterContent(currentContentChapter);
-      if (currentSubjectForChapters) loadChaptersTable(currentSubjectForChapters);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      adminToast(data.message || 'Quiz deleted', 'success');
+      if (currentContentChapter) await loadChapterContent(currentContentChapter);
+      if (currentSubjectForChapters) await loadChaptersTable(currentSubjectForChapters);
+      if (typeof loadDashboard === 'function') loadDashboard();
     } else {
-      adminToast('Failed to delete quiz', 'error');
+      adminToast(data.error || 'Failed to delete quiz', 'error');
     }
   } catch (err) {
     adminToast('Error connecting to server', 'error');
@@ -1736,13 +1742,15 @@ async function deleteUnifiedLectureItem(lectureId, chapterId) {
   if (!confirm('Are you sure you want to delete this lecture and all its attached notes, DPPs, and extra resources?')) return;
   try {
     const res = await adminFetch(`/api/admin/videos/${lectureId}`, { method: 'DELETE' });
-    if (res.ok) {
-      adminToast('Lecture & materials removed');
-      if (chapterId) loadContentManagerLectures(chapterId);
-      if (currentContentChapter) loadChapterContent(currentContentChapter);
-      if (currentSubjectForChapters) loadChaptersTable(currentSubjectForChapters);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      adminToast(data.message || 'Lecture & materials removed', 'success');
+      if (chapterId) await loadContentManagerLectures(chapterId);
+      if (currentContentChapter) await loadChapterContent(currentContentChapter);
+      if (currentSubjectForChapters) await loadChaptersTable(currentSubjectForChapters);
+      if (typeof loadDashboard === 'function') loadDashboard();
     } else {
-      adminToast('Failed to delete lecture', 'error');
+      adminToast(data.error || 'Failed to delete lecture', 'error');
     }
   } catch (err) {
     adminToast('Error connecting to server', 'error');
@@ -1787,9 +1795,13 @@ async function deleteUser(userId) {
   if (!confirm('Are you sure you want to delete this user and all their enrollments?')) return;
   try {
     const res = await adminFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
-    if (res.ok) {
-      adminToast('User deleted successfully');
-      loadUsersTable();
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      adminToast(data.message || 'User deleted successfully', 'success');
+      await loadUsersTable();
+      if (typeof loadDashboard === 'function') loadDashboard();
+    } else {
+      adminToast(data.error || 'Failed to delete user', 'error');
     }
   } catch (err) {
     adminToast('Failed to delete user', 'error');
@@ -1869,9 +1881,12 @@ async function deleteAnnouncement(annId, batchId) {
   if (!confirm('Delete this announcement?')) return;
   try {
     const res = await adminFetch(`/api/admin/announcements/${annId}`, { method: 'DELETE' });
-    if (res.ok) {
-      adminToast('Announcement removed');
-      loadAnnouncementsForBatch(batchId);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      adminToast(data.message || 'Announcement removed', 'success');
+      await loadAnnouncementsForBatch(batchId);
+    } else {
+      adminToast(data.error || 'Failed to delete announcement', 'error');
     }
   } catch (err) {
     adminToast('Failed to delete announcement', 'error');
@@ -2651,12 +2666,15 @@ async function deleteBanner(bannerId, bannerTitle) {
     const res = await adminFetch(`/api/admin/banners/${bannerId}`, {
       method: 'DELETE'
     });
-    if (res.ok) {
-      adminToast('Banner deleted successfully');
-      loadBannersManager();
-      loadDashboard();
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success !== false) {
+      adminToast(data.message || 'Banner deleted successfully', 'success');
+      await loadBannersManager();
+      if (typeof loadDashboard === 'function') {
+        loadDashboard();
+      }
     } else {
-      adminToast('Failed to delete banner', 'error');
+      adminToast(data.error || 'Failed to delete banner', 'error');
     }
   } catch (err) {
     adminToast('Error connecting to server', 'error');
