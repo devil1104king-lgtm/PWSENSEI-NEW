@@ -299,9 +299,9 @@ async function loadBatchesTable() {
         <td>${b.is_free ? '<span style="color:#15803D; font-weight:700;">FREE</span>' : `₹${b.price}`}</td>
         <td>${b.is_published ? '<span class="badge-published">Published</span>' : '<span class="badge-draft">Draft</span>'}</td>
         <td>
-          <button class="btn-sm-edit" onclick="openEditBatchModal(${b.id})">Edit</button>
-          <button class="btn-sm-edit" style="background:#F3E8FF; color:#7C3AED;" onclick="goToManageContent(${b.id})">Content</button>
-          <button class="btn-sm-delete" onclick="deleteBatch(${b.id})">Delete</button>
+          <button class="btn-sm-edit" onclick="openEditBatchModal('${b.id}')">Edit</button>
+          <button class="btn-sm-edit" style="background:#F3E8FF; color:#7C3AED;" onclick="goToManageContent('${b.id}')">Content</button>
+          <button class="btn-sm-delete" onclick="deleteBatch('${b.id}')">Delete</button>
         </td>
       </tr>
     `
@@ -326,12 +326,16 @@ function openCreateBatchModal() {
 }
 
 function openEditBatchModal(batchId) {
-  const batch = allBatches.find(b => b.id === batchId);
-  if (!batch) return;
+  const batch = allBatches.find(b => String(b.id) === String(batchId));
+  if (!batch) {
+    console.error('Batch not found for edit with ID:', batchId);
+    adminToast('Batch details could not be found', 'error');
+    return;
+  }
 
   document.getElementById('batch-modal-title').textContent = 'Edit Batch';
-  document.getElementById('batch-id-input').value = batch.id;
-  document.getElementById('batch-title').value = batch.title;
+  document.getElementById('batch-id-input').value = String(batch.id);
+  document.getElementById('batch-title').value = batch.title || '';
   document.getElementById('batch-thumb').value = batch.thumbnail_url || '';
   const bannerInput = document.getElementById('batch-banner-url');
   if (bannerInput) bannerInput.value = batch.banner_url || '';
@@ -349,7 +353,7 @@ function openEditBatchModal(batchId) {
 
 async function saveBatch(e) {
   e.preventDefault();
-  const id = document.getElementById('batch-id-input').value;
+  const id = document.getElementById('batch-id-input').value.trim();
   const bannerInput = document.getElementById('batch-banner-url');
   const payload = {
     title: document.getElementById('batch-title').value.trim(),
@@ -365,7 +369,7 @@ async function saveBatch(e) {
     is_published: document.getElementById('batch-is-published').checked ? 1 : 0
   };
 
-  const url = id ? `/api/admin/batches/${id}` : '/api/admin/batches';
+  const url = id ? `/api/admin/batches/${encodeURIComponent(id)}` : '/api/admin/batches';
   const method = id ? 'PUT' : 'POST';
 
   try {
@@ -377,9 +381,12 @@ async function saveBatch(e) {
     if (res.ok) {
       adminToast(id ? 'Batch updated successfully!' : 'Batch created successfully!');
       document.getElementById('batch-modal').classList.remove('active');
-      loadBatchesTable();
+      await loadBatchesTable();
+      if (typeof loadDashboard === 'function') {
+        loadDashboard();
+      }
     } else {
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       adminToast(data.error || 'Failed to save batch', 'error');
     }
   } catch (err) {
@@ -391,17 +398,8 @@ async function deleteBatch(batchId) {
   if (!confirm('Are you sure you want to delete this batch and all its subjects, videos, and PDFs?')) return;
 
   try {
-    const token = localStorage.getItem('pw_admin_token');
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      headers['x-admin-token'] = token;
-    }
-
-    const res = await adminFetch(`/api/admin/batches/${batchId}`, {
-      method: 'DELETE',
-      headers,
-      credentials: 'include'
+    const res = await adminFetch(`/api/admin/batches/${encodeURIComponent(batchId)}`, {
+      method: 'DELETE'
     });
 
     const data = await res.json().catch(() => ({}));
@@ -426,7 +424,7 @@ function goToManageContent(batchId) {
   setTimeout(() => {
     const select = document.getElementById('content-batch-select');
     if (select) {
-      select.value = batchId;
+      select.value = String(batchId);
       select.dispatchEvent(new Event('change'));
     }
   }, 100);
@@ -1834,7 +1832,7 @@ async function loadAnnouncementsForBatch(batchId) {
           <p style="font-size: 14.5px; color: #111827; font-weight: 500; margin-bottom: 6px;">${a.message}</p>
           <span style="font-size: 12px; color: #6B7280;">${new Date(a.created_at).toLocaleString()}</span>
         </div>
-        <button class="btn-sm-delete" onclick="deleteAnnouncement(${a.id}, ${batchId})">Delete</button>
+        <button class="btn-sm-delete" onclick="deleteAnnouncement(${a.id}, '${batchId}')">Delete</button>
       </div>
     `
       )

@@ -584,16 +584,16 @@
     }
   ],
   "nextId": {
-    "subject": 8,
-    "chapter": 8,
-    "lecture": 7,
-    "note": 7,
+    "subject": 10,
+    "chapter": 10,
+    "lecture": 9,
+    "note": 9,
     "quiz": 4,
     "extra_resource": 2,
-    "teacher": 4,
-    "announcement": 3,
-    "banner": 3,
-    "nav_link": 4,
+    "teacher": 6,
+    "announcement": 5,
+    "banner": 5,
+    "nav_link": 6,
     "user": 3
   }
 }

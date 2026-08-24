@@ -37,6 +37,11 @@ router.get('/me', (req: Request, res: Response) => {
   res.json({ success: true, admin });
 });
 
+router.get('/dashboard', (req: Request, res: Response) => {
+  const data = db.getDashboardStats();
+  res.json(data);
+});
+
 router.get('/stats', (req: Request, res: Response) => {
   const data = db.getDashboardStats();
   res.json(data);
@@ -48,9 +53,16 @@ router.get('/settings', (req: Request, res: Response) => {
   res.json({ settings });
 });
 
+router.post('/settings', (req: Request, res: Response) => {
+  const payload = req.body.settings || req.body;
+  const updated = db.updateSettings(payload);
+  res.json({ success: true, settings: updated, message: 'Settings saved successfully' });
+});
+
 router.put('/settings', (req: Request, res: Response) => {
-  const updated = db.updateSettings(req.body);
-  res.json({ success: true, settings: updated });
+  const payload = req.body.settings || req.body;
+  const updated = db.updateSettings(payload);
+  res.json({ success: true, settings: updated, message: 'Settings saved successfully' });
 });
 
 // --- BATCHES ---
@@ -61,7 +73,7 @@ router.get('/batches', (req: Request, res: Response) => {
 
 router.post('/batches', (req: Request, res: Response) => {
   const batch = db.createBatch(req.body);
-  res.status(201).json({ success: true, batch });
+  res.status(201).json({ success: true, batch, message: 'Batch created successfully' });
 });
 
 router.get('/batches/:id', (req: Request, res: Response) => {
@@ -79,7 +91,7 @@ router.put('/batches/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Batch not found' });
     return;
   }
-  res.json({ success: true, batch: updated });
+  res.json({ success: true, batch: updated, message: 'Batch updated successfully' });
 });
 
 router.delete('/batches/:id', (req: Request, res: Response) => {
@@ -88,7 +100,7 @@ router.delete('/batches/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Batch not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Batch deleted successfully' });
 });
 
 // --- SUBJECTS ---
@@ -99,7 +111,16 @@ router.get('/batches/:id/subjects', (req: Request, res: Response) => {
 
 router.post('/batches/:id/subjects', (req: Request, res: Response) => {
   const subject = db.createSubject(req.params.id, req.body);
-  res.status(201).json({ success: true, subject });
+  res.status(201).json({ success: true, subject, message: 'Subject created successfully' });
+});
+
+router.get('/subjects/:id', (req: Request, res: Response) => {
+  const subject = db.getSubjectById(Number(req.params.id));
+  if (!subject) {
+    res.status(404).json({ error: 'Subject not found' });
+    return;
+  }
+  res.json(subject);
 });
 
 router.put('/subjects/:id', (req: Request, res: Response) => {
@@ -108,7 +129,7 @@ router.put('/subjects/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Subject not found' });
     return;
   }
-  res.json({ success: true, subject: updated });
+  res.json({ success: true, subject: updated, message: 'Subject updated successfully' });
 });
 
 router.delete('/subjects/:id', (req: Request, res: Response) => {
@@ -117,10 +138,26 @@ router.delete('/subjects/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Subject not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Subject deleted successfully' });
 });
 
 // --- CHAPTERS ---
+router.get('/chapters', (req: Request, res: Response) => {
+  const subjectId = req.query.subject_id;
+  if (subjectId) {
+    const chapters = db.getChaptersBySubject(Number(subjectId));
+    res.json({ chapters });
+  } else {
+    res.json({ chapters: [] });
+  }
+});
+
+router.post('/chapters', (req: Request, res: Response) => {
+  const subjectId = req.body.subject_id;
+  const chapter = db.createChapter({ ...req.body, subject_id: Number(subjectId) });
+  res.status(201).json({ success: true, chapter, message: 'Chapter created successfully' });
+});
+
 router.get('/subjects/:id/chapters', (req: Request, res: Response) => {
   const chapters = db.getChaptersBySubject(Number(req.params.id));
   res.json({ chapters });
@@ -128,7 +165,7 @@ router.get('/subjects/:id/chapters', (req: Request, res: Response) => {
 
 router.post('/subjects/:id/chapters', (req: Request, res: Response) => {
   const chapter = db.createChapter({ ...req.body, subject_id: Number(req.params.id) });
-  res.status(201).json({ success: true, chapter });
+  res.status(201).json({ success: true, chapter, message: 'Chapter created successfully' });
 });
 
 router.put('/chapters/:id', (req: Request, res: Response) => {
@@ -137,7 +174,7 @@ router.put('/chapters/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Chapter not found' });
     return;
   }
-  res.json({ success: true, chapter: updated });
+  res.json({ success: true, chapter: updated, message: 'Chapter updated successfully' });
 });
 
 router.delete('/chapters/:id', (req: Request, res: Response) => {
@@ -146,7 +183,7 @@ router.delete('/chapters/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Chapter not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Chapter deleted successfully' });
 });
 
 // --- CHAPTER CONTENT & UNIFIED LECTURE ---
@@ -168,7 +205,7 @@ router.get('/chapters/:id/lectures', (req: Request, res: Response) => {
 
 router.post('/chapters/:id/unified-lecture', (req: Request, res: Response) => {
   const lecture = db.createUnifiedLecture(Number(req.params.id), req.body);
-  res.status(201).json({ success: true, lecture });
+  res.status(201).json({ success: true, lecture, message: 'Unified lecture created successfully' });
 });
 
 router.get('/lectures/:id', (req: Request, res: Response) => {
@@ -186,7 +223,7 @@ router.put('/lectures/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Lecture not found' });
     return;
   }
-  res.json({ success: true, lecture: updated });
+  res.json({ success: true, lecture: updated, message: 'Lecture updated successfully' });
 });
 
 router.delete('/lectures/:id', (req: Request, res: Response) => {
@@ -195,13 +232,13 @@ router.delete('/lectures/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Lecture not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Lecture deleted successfully' });
 });
 
 // --- SINGLE VIDEOS ---
 router.post('/videos', (req: Request, res: Response) => {
   const video = db.createVideo(req.body);
-  res.status(201).json({ success: true, video });
+  res.status(201).json({ success: true, video, message: 'Video created successfully' });
 });
 
 router.put('/videos/:id', (req: Request, res: Response) => {
@@ -210,7 +247,7 @@ router.put('/videos/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Video not found' });
     return;
   }
-  res.json({ success: true, video: updated });
+  res.json({ success: true, video: updated, message: 'Video updated successfully' });
 });
 
 router.delete('/videos/:id', (req: Request, res: Response) => {
@@ -219,7 +256,7 @@ router.delete('/videos/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Video not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Video deleted successfully' });
 });
 
 router.patch('/videos/:id/today', (req: Request, res: Response) => {
@@ -240,7 +277,7 @@ router.patch('/videos/:id/status', (req: Request, res: Response) => {
 // --- SINGLE PDFS ---
 router.post('/pdfs', (req: Request, res: Response) => {
   const pdf = db.createPdf(req.body);
-  res.status(201).json({ success: true, pdf });
+  res.status(201).json({ success: true, pdf, message: 'PDF created successfully' });
 });
 
 router.put('/pdfs/:id', (req: Request, res: Response) => {
@@ -249,7 +286,7 @@ router.put('/pdfs/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'PDF not found' });
     return;
   }
-  res.json({ success: true, pdf: updated });
+  res.json({ success: true, pdf: updated, message: 'PDF updated successfully' });
 });
 
 router.delete('/pdfs/:id', (req: Request, res: Response) => {
@@ -258,7 +295,7 @@ router.delete('/pdfs/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'PDF not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'PDF deleted successfully' });
 });
 
 router.patch('/pdfs/:id/status', (req: Request, res: Response) => {
@@ -273,7 +310,7 @@ router.delete('/quizzes/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Quiz not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Quiz deleted successfully' });
 });
 
 router.patch('/quizzes/:id/status', (req: Request, res: Response) => {
@@ -288,6 +325,12 @@ router.get('/announcements', (req: Request, res: Response) => {
   res.json({ announcements });
 });
 
+router.get('/announcements/:batch_id', (req: Request, res: Response) => {
+  const batchId = req.params.batch_id;
+  const announcements = db.getAnnouncements(batchId);
+  res.json({ announcements });
+});
+
 router.post('/announcements', (req: Request, res: Response) => {
   const { batch_id, message } = req.body;
   if (!batch_id || !message) {
@@ -295,7 +338,7 @@ router.post('/announcements', (req: Request, res: Response) => {
     return;
   }
   const ann = db.createAnnouncement(batch_id, message);
-  res.status(201).json({ success: true, announcement: ann });
+  res.status(201).json({ success: true, announcement: ann, message: 'Announcement created successfully' });
 });
 
 router.delete('/announcements/:id', (req: Request, res: Response) => {
@@ -304,7 +347,7 @@ router.delete('/announcements/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Announcement not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Announcement deleted successfully' });
 });
 
 // --- TEACHERS ---
@@ -316,7 +359,7 @@ router.get('/teachers', (req: Request, res: Response) => {
 
 router.post('/teachers', (req: Request, res: Response) => {
   const teacher = db.createTeacher(req.body);
-  res.status(201).json({ success: true, teacher });
+  res.status(201).json({ success: true, teacher, message: 'Educator added successfully' });
 });
 
 router.put('/teachers/:id', (req: Request, res: Response) => {
@@ -325,7 +368,7 @@ router.put('/teachers/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Teacher not found' });
     return;
   }
-  res.json({ success: true, teacher: updated });
+  res.json({ success: true, teacher: updated, message: 'Educator updated successfully' });
 });
 
 router.delete('/teachers/:id', (req: Request, res: Response) => {
@@ -334,7 +377,7 @@ router.delete('/teachers/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Teacher not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Educator removed successfully' });
 });
 
 // --- BANNERS ---
@@ -345,7 +388,7 @@ router.get('/banners', (req: Request, res: Response) => {
 
 router.post('/banners', (req: Request, res: Response) => {
   const banner = db.createBanner(req.body);
-  res.status(201).json({ success: true, banner });
+  res.status(201).json({ success: true, banner, message: 'Banner created successfully' });
 });
 
 router.put('/banners/:id', (req: Request, res: Response) => {
@@ -354,7 +397,7 @@ router.put('/banners/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Banner not found' });
     return;
   }
-  res.json({ success: true, banner: updated });
+  res.json({ success: true, banner: updated, message: 'Banner updated successfully' });
 });
 
 router.delete('/banners/:id', (req: Request, res: Response) => {
@@ -363,7 +406,7 @@ router.delete('/banners/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Banner not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Banner deleted successfully' });
 });
 
 router.patch('/banners/:id/status', (req: Request, res: Response) => {
@@ -371,12 +414,24 @@ router.patch('/banners/:id/status', (req: Request, res: Response) => {
   res.json({ success });
 });
 
-router.put('/banners/reorder', (req: Request, res: Response) => {
-  const { ids } = req.body;
-  if (Array.isArray(ids)) {
+router.post('/banners/reorder', (req: Request, res: Response) => {
+  const { banners, ids } = req.body;
+  if (Array.isArray(banners)) {
+    db.reorderBanners(banners.map((b: any) => b.id));
+  } else if (Array.isArray(ids)) {
     db.reorderBanners(ids);
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Banners reordered successfully' });
+});
+
+router.put('/banners/reorder', (req: Request, res: Response) => {
+  const { banners, ids } = req.body;
+  if (Array.isArray(banners)) {
+    db.reorderBanners(banners.map((b: any) => b.id));
+  } else if (Array.isArray(ids)) {
+    db.reorderBanners(ids);
+  }
+  res.json({ success: true, message: 'Banners reordered successfully' });
 });
 
 router.put('/banners/settings', (req: Request, res: Response) => {
@@ -385,7 +440,7 @@ router.put('/banners/settings', (req: Request, res: Response) => {
     banner_interval: interval,
     banner_auto_slide: auto_slide
   });
-  res.json({ success: true });
+  res.json({ success: true, message: 'Banner settings updated successfully' });
 });
 
 // --- NAVIGATION LINKS ---
@@ -396,7 +451,7 @@ router.get('/nav-links', (req: Request, res: Response) => {
 
 router.post('/nav-links', (req: Request, res: Response) => {
   const link = db.createNavLink(req.body);
-  res.status(201).json({ success: true, navLink: link });
+  res.status(201).json({ success: true, navLink: link, message: 'Nav link created successfully' });
 });
 
 router.put('/nav-links/:id', (req: Request, res: Response) => {
@@ -405,7 +460,7 @@ router.put('/nav-links/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Nav link not found' });
     return;
   }
-  res.json({ success: true, navLink: updated });
+  res.json({ success: true, navLink: updated, message: 'Nav link updated successfully' });
 });
 
 router.delete('/nav-links/:id', (req: Request, res: Response) => {
@@ -414,7 +469,7 @@ router.delete('/nav-links/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'Nav link not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'Nav link deleted successfully' });
 });
 
 // --- USERS ---
@@ -429,7 +484,7 @@ router.delete('/users/:id', (req: Request, res: Response) => {
     res.status(404).json({ error: 'User not found' });
     return;
   }
-  res.json({ success: true });
+  res.json({ success: true, message: 'User deleted successfully' });
 });
 
 export default router;
