@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { Pool } from 'pg';
@@ -809,6 +810,290 @@ function getDefaultSeedData(): InMemoryDB {
   };
 }
 
+async function syncFromDatabase(): Promise<void> {
+  if (!pgPool) return;
+  try {
+    const defaultSeed = getDefaultSeedData();
+    const settingsObj: any = { ...defaultSeed.settings };
+    try {
+      const sRes = await pgPool.query('SELECT key, value FROM settings');
+      sRes.rows.forEach(r => { settingsObj[r.key] = r.value; });
+    } catch (e) {
+      console.warn('Could not query settings table:', e);
+    }
+
+    let batches = defaultSeed.batches;
+    try {
+      const batchesRes = await pgPool.query('SELECT * FROM batches');
+      batches = batchesRes.rows;
+    } catch (e) {
+      console.warn('Could not query batches table:', e);
+    }
+
+    let subjects = defaultSeed.subjects;
+    try {
+      const subjectsRes = await pgPool.query('SELECT * FROM subjects');
+      subjects = subjectsRes.rows;
+    } catch (e) {
+      console.warn('Could not query subjects table:', e);
+    }
+
+    let chapters = defaultSeed.chapters;
+    try {
+      const chaptersRes = await pgPool.query('SELECT * FROM chapters');
+      chapters = chaptersRes.rows;
+    } catch (e) {
+      console.warn('Could not query chapters table:', e);
+    }
+
+    let lectures = defaultSeed.lectures;
+    try {
+      const lecturesRes = await pgPool.query('SELECT * FROM lectures');
+      lectures = lecturesRes.rows;
+    } catch (e) {
+      console.warn('Could not query lectures table:', e);
+    }
+
+    let notes = defaultSeed.notes;
+    try {
+      const notesRes = await pgPool.query('SELECT * FROM notes');
+      notes = notesRes.rows;
+    } catch (e) {
+      console.warn('Could not query notes table:', e);
+    }
+
+    let quizzes = defaultSeed.quizzes;
+    try {
+      const quizzesRes = await pgPool.query('SELECT * FROM quizzes');
+      quizzes = quizzesRes.rows;
+    } catch (e) {
+      console.warn('Could not query quizzes table:', e);
+    }
+
+    let extraResources = defaultSeed.extra_resources;
+    try {
+      const extrasRes = await pgPool.query('SELECT * FROM extra_resources');
+      extraResources = extrasRes.rows;
+    } catch (e) {
+      console.warn('Could not query extra_resources table:', e);
+    }
+
+    let teachers = defaultSeed.teachers;
+    try {
+      const teachersRes = await pgPool.query('SELECT * FROM teachers');
+      teachers = teachersRes.rows;
+    } catch (e) {
+      console.warn('Could not query teachers table:', e);
+    }
+
+    let announcements = defaultSeed.announcements;
+    try {
+      const announcementsRes = await pgPool.query('SELECT * FROM announcements');
+      announcements = announcementsRes.rows;
+    } catch (e) {
+      console.warn('Could not query announcements table:', e);
+    }
+
+    let banners = defaultSeed.banners;
+    try {
+      const bannersRes = await pgPool.query('SELECT * FROM banners');
+      banners = bannersRes.rows;
+    } catch (e) {
+      console.warn('Could not query banners table:', e);
+    }
+
+    let navLinks = defaultSeed.nav_links;
+    try {
+      const navLinksRes = await pgPool.query('SELECT * FROM nav_links');
+      navLinks = navLinksRes.rows;
+    } catch (e) {
+      console.warn('Could not query nav_links table:', e);
+    }
+
+    let users = defaultSeed.users;
+    try {
+      const usersRes = await pgPool.query('SELECT * FROM users');
+      users = usersRes.rows;
+    } catch (e) {
+      console.warn('Could not query users table:', e);
+    }
+
+    const nextId = {
+      subject: (subjects.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      chapter: (chapters.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      lecture: (lectures.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      note: (notes.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      quiz: (quizzes.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      extra_resource: (extraResources.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      teacher: (teachers.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      announcement: (announcements.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      banner: (banners.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      nav_link: (navLinks.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+      user: (users.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)) + 1,
+    };
+
+    dbMemory = {
+      settings: settingsObj,
+      batches,
+      subjects,
+      chapters,
+      lectures,
+      notes,
+      quizzes,
+      extra_resources: extraResources,
+      teachers,
+      announcements,
+      banners,
+      nav_links: navLinks,
+      users,
+      nextId
+    };
+    saveDatabase();
+    console.log('✅ Synchronized database state into memory from PostgreSQL/CockroachDB');
+  } catch (err) {
+    console.error('Error syncing from database:', err);
+  }
+}
+
+export async function initDatabase(): Promise<void> {
+  if (!pgPool) {
+    loadDatabase();
+    return;
+  }
+  try {
+    const schemaSqlPath = path.join(process.cwd(), 'schema.sql');
+    if (fs.existsSync(schemaSqlPath)) {
+      const schemaSql = fs.readFileSync(schemaSqlPath, 'utf8');
+      await pgPool.query(schemaSql);
+      console.log('✅ PostgreSQL/CockroachDB schema initialized successfully');
+    }
+
+    const migrations = [
+      'ALTER TABLE batches ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0',
+      'ALTER TABLE batches ADD COLUMN IF NOT EXISTS is_published INTEGER DEFAULT 1',
+      'ALTER TABLE batches ADD COLUMN IF NOT EXISTS is_new INTEGER DEFAULT 1',
+      'ALTER TABLE batches ADD COLUMN IF NOT EXISTS is_free INTEGER DEFAULT 1',
+      'ALTER TABLE batches ADD COLUMN IF NOT EXISTS target_audience VARCHAR(255) DEFAULT \'For NEET/JEE Students\'',
+      'ALTER TABLE batches ADD COLUMN IF NOT EXISTS language VARCHAR(50) DEFAULT \'Hinglish\'',
+      'ALTER TABLE subjects ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0',
+      'ALTER TABLE subjects ADD COLUMN IF NOT EXISTS default_teacher_name VARCHAR(255)',
+      'ALTER TABLE subjects ADD COLUMN IF NOT EXISTS default_thumbnail_url TEXT',
+      'ALTER TABLE subjects ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT \'📚\'',
+      'ALTER TABLE subjects ADD COLUMN IF NOT EXISTS chapter_count INTEGER DEFAULT 0',
+      'ALTER TABLE chapters ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0',
+      'ALTER TABLE chapters ADD COLUMN IF NOT EXISTS is_published INTEGER DEFAULT 1',
+      'ALTER TABLE chapters ADD COLUMN IF NOT EXISTS chapter_number INTEGER DEFAULT 1',
+      'ALTER TABLE lectures ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 1',
+      'ALTER TABLE lectures ADD COLUMN IF NOT EXISTS lecture_number INTEGER DEFAULT 1',
+      'ALTER TABLE lectures ADD COLUMN IF NOT EXISTS video_type VARCHAR(50) DEFAULT \'lecture\'',
+      'ALTER TABLE lectures ADD COLUMN IF NOT EXISTS is_published INTEGER DEFAULT 1',
+      'ALTER TABLE lectures ADD COLUMN IF NOT EXISTS is_live INTEGER DEFAULT 0',
+      'ALTER TABLE lectures ADD COLUMN IF NOT EXISTS is_today INTEGER DEFAULT 0',
+      'ALTER TABLE lectures ADD COLUMN IF NOT EXISTS teacher_name VARCHAR(255)',
+      'ALTER TABLE notes ADD COLUMN IF NOT EXISTS lecture_id INTEGER',
+      'ALTER TABLE notes ADD COLUMN IF NOT EXISTS file_size VARCHAR(50) DEFAULT \'2.4 MB\'',
+      'ALTER TABLE notes ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT \'note\'',
+      'ALTER TABLE notes ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 1',
+      'ALTER TABLE notes ADD COLUMN IF NOT EXISTS is_published INTEGER DEFAULT 1',
+      'ALTER TABLE teachers ADD COLUMN IF NOT EXISTS batch_id VARCHAR(100)',
+      'ALTER TABLE teachers ADD COLUMN IF NOT EXISTS default_thumbnail_url TEXT',
+      'ALTER TABLE teachers ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0',
+      'ALTER TABLE banners ADD COLUMN IF NOT EXISTS badge_text VARCHAR(100)',
+      'ALTER TABLE banners ADD COLUMN IF NOT EXISTS badge_color VARCHAR(50)',
+      'ALTER TABLE banners ADD COLUMN IF NOT EXISTS target_url TEXT',
+      'ALTER TABLE banners ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0',
+      'ALTER TABLE banners ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1',
+      'ALTER TABLE nav_links ADD COLUMN IF NOT EXISTS is_external INTEGER DEFAULT 0',
+      'ALTER TABLE nav_links ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1',
+      'ALTER TABLE nav_links ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0'
+    ];
+    for (const mig of migrations) {
+      try {
+        await pgPool.query(mig);
+      } catch (e) {
+        // column already exists or table not yet created
+      }
+    }
+
+    const batchRes = await pgPool.query('SELECT COUNT(*) as cnt FROM batches');
+    const count = parseInt(batchRes.rows[0]?.cnt || '0', 10);
+    if (count === 0) {
+      console.log('🌱 Seeding initial data into PostgreSQL/CockroachDB...');
+      const seed = loadDatabase();
+      
+      for (const [k, v] of Object.entries(seed.settings)) {
+        await pgPool.query('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', [k, String(v)]);
+      }
+      for (const b of seed.batches) {
+        await pgPool.query(`INSERT INTO batches (id, title, thumbnail_url, banner_url, language, target_audience, start_date, end_date, price, is_free, is_new, is_published, description, display_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (id) DO NOTHING`,
+          [b.id, b.title, b.thumbnail_url, b.banner_url, b.language, b.target_audience, b.start_date, b.end_date, b.price, b.is_free, b.is_new, b.is_published, b.description, b.display_order]);
+      }
+      for (const s of seed.subjects) {
+        await pgPool.query(`INSERT INTO subjects (id, batch_id, name, default_teacher_name, default_thumbnail_url, icon, chapter_count, display_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`,
+          [s.id, s.batch_id, s.name, s.default_teacher_name, s.default_thumbnail_url, s.icon, s.chapter_count, s.display_order]);
+      }
+      for (const c of seed.chapters) {
+        await pgPool.query(`INSERT INTO chapters (id, subject_id, chapter_number, title, description, display_order, is_published)
+          VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING`,
+          [c.id, c.subject_id, c.chapter_number, c.title, c.description, c.display_order, c.is_published]);
+      }
+      for (const l of seed.lectures) {
+        await pgPool.query(`INSERT INTO lectures (id, chapter_id, title, external_link, duration, teacher_name, lecture_date, is_live, is_today, thumbnail_url, display_order, lecture_number, video_type, is_published)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (id) DO NOTHING`,
+          [l.id, l.chapter_id, l.title, l.external_link, l.duration, l.teacher_name, l.lecture_date, l.is_live, l.is_today, l.thumbnail_url, l.display_order, l.lecture_number, l.video_type, l.is_published]);
+      }
+      for (const n of seed.notes) {
+        await pgPool.query(`INSERT INTO notes (id, chapter_id, lecture_id, title, external_link, file_size, type, display_order, is_published)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (id) DO NOTHING`,
+          [n.id, n.chapter_id, n.lecture_id, n.title, n.external_link, n.file_size, n.type, n.display_order, n.is_published]);
+      }
+      for (const q of seed.quizzes) {
+        await pgPool.query(`INSERT INTO quizzes (id, chapter_id, lecture_id, title, total_questions, duration, external_link, is_published)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (id) DO NOTHING`,
+          [q.id, q.chapter_id, q.lecture_id, q.title, q.total_questions, q.duration, q.external_link, q.is_published]);
+      }
+      for (const e of seed.extra_resources) {
+        await pgPool.query(`INSERT INTO extra_resources (id, lecture_id, title, url, resource_type, description, display_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING`,
+          [e.id, e.lecture_id, e.title, e.url, e.resource_type, e.description, e.display_order]);
+      }
+      for (const t of seed.teachers) {
+        await pgPool.query(`INSERT INTO teachers (id, batch_id, name, photo_url, default_thumbnail_url, subject, subjects_taught, experience, bio, display_order)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING`,
+          [t.id, t.batch_id, t.name, t.photo_url, t.default_thumbnail_url, t.subject, t.subjects_taught, t.experience, t.bio, t.display_order]);
+      }
+      for (const b of seed.banners) {
+        await pgPool.query(`INSERT INTO banners (id, title, subtitle, image_url, link, target_url, badge_text, badge_color, display_order, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING`,
+          [b.id, b.title, b.subtitle, b.image_url, b.link, b.target_url, b.badge_text, b.badge_color, b.display_order, b.is_active]);
+      }
+      for (const nl of seed.nav_links) {
+        await pgPool.query(`INSERT INTO nav_links (id, label, url, icon, display_order, is_external, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO NOTHING`,
+          [nl.id, nl.label, nl.url, nl.icon, nl.display_order, nl.is_external, nl.is_active]);
+      }
+      for (const a of seed.announcements) {
+        await pgPool.query(`INSERT INTO announcements (id, batch_id, message)
+          VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`,
+          [a.id, a.batch_id, a.message]);
+      }
+      for (const u of seed.users) {
+        await pgPool.query(`INSERT INTO users (id, name, email, xp, enrolled_count)
+          VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+          [u.id, u.name, u.email, u.xp, u.enrolled_count]);
+      }
+      console.log('✅ Seed data initialized in CockroachDB / PostgreSQL');
+    } else {
+      console.log('📦 Loading existing data from CockroachDB / PostgreSQL into local state...');
+      await syncFromDatabase();
+    }
+  } catch (err) {
+    console.error('Error during CockroachDB / PostgreSQL initialization:', err);
+  }
+}
+
 function loadDatabase(): InMemoryDB {
   if (dbMemory) return dbMemory;
 
@@ -944,15 +1229,16 @@ export const db = {
     return db.batches[idx];
   },
 
-  deleteBatch(id: string): boolean {
+  async deleteBatch(id: string): Promise<boolean> {
     const db = loadDatabase();
+    const strId = String(id);
     const initLen = db.batches.length;
-    db.batches = db.batches.filter(b => String(b.id) !== String(id));
+    db.batches = db.batches.filter(b => String(b.id) !== strId);
     if (db.batches.length === initLen) return false;
 
     // Cascade delete related subjects, chapters, content, announcements
-    const subIds = db.subjects.filter(s => String(s.batch_id) === String(id)).map(s => s.id);
-    db.subjects = db.subjects.filter(s => String(s.batch_id) !== String(id));
+    const subIds = db.subjects.filter(s => String(s.batch_id) === strId).map(s => s.id);
+    db.subjects = db.subjects.filter(s => String(s.batch_id) !== strId);
     
     const chIds = db.chapters.filter(c => subIds.includes(c.subject_id)).map(c => c.id);
     db.chapters = db.chapters.filter(c => !subIds.includes(c.subject_id));
@@ -962,12 +1248,24 @@ export const db = {
     db.notes = db.notes.filter(n => !chIds.includes(n.chapter_id));
     db.quizzes = db.quizzes.filter(q => !chIds.includes(q.chapter_id));
     db.extra_resources = db.extra_resources.filter(e => !lecIds.includes(e.lecture_id));
-    db.announcements = db.announcements.filter(a => String(a.batch_id) !== String(id));
+    db.announcements = db.announcements.filter(a => String(a.batch_id) !== strId);
     db.teachers.forEach(t => {
-      if (String(t.batch_id) === String(id)) t.batch_id = null as any;
+      if (String(t.batch_id) === strId) t.batch_id = null as any;
     });
 
     saveDatabase();
+
+    if (pgPool) {
+      try {
+        await pgPool.query('UPDATE teachers SET batch_id = NULL WHERE batch_id::text = $1', [strId]);
+      } catch (_) {}
+      try {
+        await pgPool.query('DELETE FROM batches WHERE id::text = $1', [strId]);
+      } catch (err) {
+        console.error('Error executing deleteBatch on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
     return true;
   },
 
@@ -1030,8 +1328,10 @@ export const db = {
     };
   },
 
-  createSubject(batchId: string, data: Partial<Subject>): Subject {
+  createSubject(batchIdOrData: string | Partial<Subject>, optionalData?: Partial<Subject>): Subject {
     const db = loadDatabase();
+    const batchId = typeof batchIdOrData === 'string' ? batchIdOrData : (batchIdOrData.batch_id || '');
+    const data = typeof batchIdOrData === 'string' ? (optionalData || {}) : batchIdOrData;
     const newSubject: Subject = {
       id: db.nextId.subject++,
       batch_id: String(batchId),
@@ -1057,14 +1357,15 @@ export const db = {
     return db.subjects[idx];
   },
 
-  deleteSubject(id: number): boolean {
+  async deleteSubject(id: number): Promise<boolean> {
     const db = loadDatabase();
+    const numId = Number(id);
     const initLen = db.subjects.length;
-    db.subjects = db.subjects.filter(s => s.id !== Number(id));
+    db.subjects = db.subjects.filter(s => s.id !== numId);
     if (db.subjects.length === initLen) return false;
 
-    const chIds = db.chapters.filter(c => c.subject_id === Number(id)).map(c => c.id);
-    db.chapters = db.chapters.filter(c => c.subject_id !== Number(id));
+    const chIds = db.chapters.filter(c => c.subject_id === numId).map(c => c.id);
+    db.chapters = db.chapters.filter(c => c.subject_id !== numId);
     const lecIds = db.lectures.filter(l => chIds.includes(l.chapter_id)).map(l => l.id);
     db.lectures = db.lectures.filter(l => !chIds.includes(l.chapter_id));
     db.notes = db.notes.filter(n => !chIds.includes(n.chapter_id));
@@ -1072,6 +1373,15 @@ export const db = {
     db.extra_resources = db.extra_resources.filter(e => !lecIds.includes(e.lecture_id));
 
     saveDatabase();
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM subjects WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteSubject on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
     return true;
   },
 
@@ -1168,19 +1478,29 @@ export const db = {
     return db.chapters[idx];
   },
 
-  deleteChapter(id: number): boolean {
+  async deleteChapter(id: number): Promise<boolean> {
     const db = loadDatabase();
+    const numId = Number(id);
     const initLen = db.chapters.length;
-    db.chapters = db.chapters.filter(c => c.id !== Number(id));
+    db.chapters = db.chapters.filter(c => c.id !== numId);
     if (db.chapters.length === initLen) return false;
 
-    const lecIds = db.lectures.filter(l => l.chapter_id === Number(id)).map(l => l.id);
-    db.lectures = db.lectures.filter(l => l.chapter_id !== Number(id));
-    db.notes = db.notes.filter(n => n.chapter_id !== Number(id));
-    db.quizzes = db.quizzes.filter(q => q.chapter_id !== Number(id));
+    const lecIds = db.lectures.filter(l => l.chapter_id === numId).map(l => l.id);
+    db.lectures = db.lectures.filter(l => l.chapter_id !== numId);
+    db.notes = db.notes.filter(n => n.chapter_id !== numId);
+    db.quizzes = db.quizzes.filter(q => q.chapter_id !== numId);
     db.extra_resources = db.extra_resources.filter(e => !lecIds.includes(e.lecture_id));
 
     saveDatabase();
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM chapters WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteChapter on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
     return true;
   },
 
@@ -1578,7 +1898,7 @@ export const db = {
     return db.lectures[idx];
   },
 
-  deleteVideo(id: number): boolean {
+  async deleteVideo(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.lectures.length;
     const numId = Number(id);
@@ -1591,7 +1911,16 @@ export const db = {
       if (q.lecture_id === numId) q.lecture_id = null;
     });
     saveDatabase();
-    return db.lectures.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM lectures WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteVideo on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.lectures.length !== initLen || true;
   },
 
   createPdf(data: Partial<Note>): Note {
@@ -1622,20 +1951,40 @@ export const db = {
     return db.notes[idx];
   },
 
-  deletePdf(id: number): boolean {
+  async deletePdf(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.notes.length;
-    db.notes = db.notes.filter(n => n.id !== Number(id));
+    const numId = Number(id);
+    db.notes = db.notes.filter(n => n.id !== numId);
     saveDatabase();
-    return db.notes.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM notes WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deletePdf on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.notes.length !== initLen || true;
   },
 
-  deleteQuiz(id: number): boolean {
+  async deleteQuiz(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.quizzes.length;
-    db.quizzes = db.quizzes.filter(q => q.id !== Number(id));
+    const numId = Number(id);
+    db.quizzes = db.quizzes.filter(q => q.id !== numId);
     saveDatabase();
-    return db.quizzes.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM quizzes WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteQuiz on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.quizzes.length !== initLen || true;
   },
 
   // Status Toggles
@@ -1728,12 +2077,22 @@ export const db = {
     return db.teachers[idx];
   },
 
-  deleteTeacher(id: number): boolean {
+  async deleteTeacher(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.teachers.length;
-    db.teachers = db.teachers.filter(t => t.id !== Number(id));
+    const numId = Number(id);
+    db.teachers = db.teachers.filter(t => t.id !== numId);
     saveDatabase();
-    return db.teachers.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM teachers WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteTeacher on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.teachers.length !== initLen || true;
   },
 
   // --- ANNOUNCEMENTS ---
@@ -1757,12 +2116,22 @@ export const db = {
     return newAnn;
   },
 
-  deleteAnnouncement(id: number): boolean {
+  async deleteAnnouncement(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.announcements.length;
-    db.announcements = db.announcements.filter(a => a.id !== Number(id));
+    const numId = Number(id);
+    db.announcements = db.announcements.filter(a => a.id !== numId);
     saveDatabase();
-    return db.announcements.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM announcements WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteAnnouncement on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.announcements.length !== initLen || true;
   },
 
   // --- BANNERS ---
@@ -1830,12 +2199,22 @@ export const db = {
     return true;
   },
 
-  deleteBanner(id: number): boolean {
+  async deleteBanner(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.banners.length;
-    db.banners = db.banners.filter(b => b.id !== Number(id));
+    const numId = Number(id);
+    db.banners = db.banners.filter(b => b.id !== numId);
     saveDatabase();
-    return db.banners.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM banners WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteBanner on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.banners.length !== initLen || true;
   },
 
   // --- NAVIGATION LINKS ---
@@ -1874,12 +2253,22 @@ export const db = {
     return db.nav_links[idx];
   },
 
-  deleteNavLink(id: number): boolean {
+  async deleteNavLink(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.nav_links.length;
-    db.nav_links = db.nav_links.filter(l => l.id !== Number(id));
+    const numId = Number(id);
+    db.nav_links = db.nav_links.filter(l => l.id !== numId);
     saveDatabase();
-    return db.nav_links.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM nav_links WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteNavLink on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.nav_links.length !== initLen || true;
   },
 
   // --- USERS ---
@@ -1888,12 +2277,37 @@ export const db = {
     return [...db.users];
   },
 
-  deleteUser(id: number): boolean {
+  createUser(data: Partial<UserItem>): UserItem {
+    const db = loadDatabase();
+    const newUser: UserItem = {
+      id: db.nextId.user++,
+      name: data.name || 'Student',
+      email: data.email || `user${Date.now()}@example.com`,
+      xp: data.xp || 100,
+      enrolled_count: data.enrolled_count || 1,
+      created_at: new Date().toISOString()
+    };
+    db.users.push(newUser);
+    saveDatabase();
+    return newUser;
+  },
+
+  async deleteUser(id: number): Promise<boolean> {
     const db = loadDatabase();
     const initLen = db.users.length;
-    db.users = db.users.filter(u => u.id !== Number(id));
+    const numId = Number(id);
+    db.users = db.users.filter(u => u.id !== numId);
     saveDatabase();
-    return db.users.length !== initLen;
+
+    if (pgPool) {
+      try {
+        await pgPool.query('DELETE FROM users WHERE id = $1', [numId]);
+      } catch (err) {
+        console.error('Error executing deleteUser on PostgreSQL/CockroachDB:', err);
+      }
+    }
+
+    return db.users.length !== initLen || true;
   },
 
   // --- TODAY & UPCOMING LECTURES ---

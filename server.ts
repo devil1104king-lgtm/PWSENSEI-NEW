@@ -4,6 +4,7 @@ import path from 'path';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 
+import { initDatabase } from './server/db';
 import adminRouter from './server/routes/admin';
 import batchesRouter from './server/routes/batches';
 import contentRouter from './server/routes/content';
@@ -11,6 +12,9 @@ import settingsRouter from './server/routes/settings';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+// Initialize database schema and data if connected to CockroachDB / PostgreSQL
+initDatabase().catch(err => console.error('Database initialization error:', err));
 
 // Body & Header Parsers
 app.use(cors());
