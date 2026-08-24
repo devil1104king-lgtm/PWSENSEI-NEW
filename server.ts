@@ -10,7 +10,7 @@ import contentRouter from './server/routes/content';
 import settingsRouter from './server/routes/settings';
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Body & Header Parsers
 app.use(cors());
